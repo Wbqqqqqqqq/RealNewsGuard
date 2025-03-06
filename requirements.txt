@@ -10,3 +10,8 @@ tqdm
 datasets
 langchain
 transformers
+scikit-learn
+tokenizers
+lightgbm
+catboost
+scipy

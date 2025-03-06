@@ -20,6 +20,7 @@ Project Root/
 │   ├── retreiver_dataset_construction.py
 │   ├── retreiver.py
 │── train/
+│   ├── machine_learning_baseline.ipynb
 │── infer.py
 │── requirement.txt
 │── README.md

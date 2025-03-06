@@ -19,8 +19,7 @@ Project Root/
 │   ├── data_generation.py
 │   ├── retreiver_dataset_construction.py
 │   ├── retreiver.py
-│── Train/
-│── Validation/
+│── train/
 │── infer.py
 │── requirement.txt
 │── README.md

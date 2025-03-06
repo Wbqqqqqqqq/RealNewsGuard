@@ -3,3 +3,6 @@ output/LoRA+RAG/model.safetensors filter=lfs diff=lfs merge=lfs -text
 assets/LoRA+RAG/optimizer.pt filter=lfs diff=lfs merge=lfs -text
 assets/LoRA+RAG/model.safetensors filter=lfs diff=lfs merge=lfs -text
 data/Retriever[[:space:]]Dataset/RAG_results_train.parquet filter=lfs diff=lfs merge=lfs -text
+*.faiss filter=lfs diff=lfs merge=lfs -text
+*.arrow filter=lfs diff=lfs merge=lfs -text
+*.csv filter=lfs diff=lfs merge=lfs -text

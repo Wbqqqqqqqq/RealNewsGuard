@@ -1,0 +1,49 @@
+{
+  "builder_name": "json",
+  "citation": "",
+  "config_name": "default",
+  "dataset_name": "json",
+  "dataset_size": 32221079,
+  "description": "",
+  "download_checksums": {
+    "D:/Desktop/SI630/Project/RealNewsGuard/news_dataset.json": {
+      "num_bytes": 33317406,
+      "checksum": null
+    }
+  },
+  "download_size": 33317406,
+  "features": {
+    "title": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "text": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "embeddings": {
+      "feature": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 65538485,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 32221079,
+      "num_examples": 24022,
+      "dataset_name": "json"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}

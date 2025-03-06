@@ -1,0 +1,12 @@
+numpy
+pandas
+torch
+torchvision
+torchaudio
+safetensors
+nltk
+faiss-cpu
+tqdm
+datasets
+langchain
+transformers

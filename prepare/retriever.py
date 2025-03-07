@@ -7,6 +7,7 @@ import faiss
 from tqdm import tqdm
 from datasets import load_dataset, load_from_disk
 from transformers import (
+    AutoTokenizer,
     RagTokenizer,
     RagRetriever,
     RagSequenceForGeneration,
@@ -22,31 +23,39 @@ print("faiss imported successfully, version:", faiss.__version__)
 
 def initialize_rag_components(model_name):
     """
-    Initialize RAG components including:
-      - Loading the Tokenizer (RAG requires RagTokenizer, not DPRContextEncoderTokenizer)
-      - Loading the DPR Question Encoder (RAG uses DPRQuestionEncoder for query encoding instead of DPRContextEncoder)
-      - Initializing the Retriever with a custom index, specifying the FAISS vector database path and pre-stored news dataset
-      - Loading the RAG model and injecting the retriever
+    Initialize RAG components:
+      - Load the Tokenizer (AutoTokenizer to prevent mismatch)
+      - Load the DPR Question Encoder (used for query encoding)
+      - Initialize the Retriever (FAISS vector database and news dataset)
+      - Load the RAG model and inject the Retriever
     """
-    # 1. Load Tokenizer
-    tokenizer = RagTokenizer.from_pretrained(model_name)
+    # 1. Load Tokenizer with AutoTokenizer (Fixes mismatch warnings)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 
-    # 2. Load DPR Question Encoder and its tokenizer
+    # 2. Load DPR Question Encoder and its corresponding Tokenizer
     question_encoder_model = "facebook/dpr-question_encoder-single-nq-base"
     question_encoder = DPRQuestionEncoder.from_pretrained(question_encoder_model)
-    question_tokenizer = DPRQuestionEncoderTokenizer.from_pretrained(question_encoder_model)
-    question_encoder.eval()
+    question_tokenizer = AutoTokenizer.from_pretrained(question_encoder_model, trust_remote_code=True)
 
-    # 3. Initialize Retriever
+    # 3. Initialize Retriever (based on FAISS vector database)
+    base_path = os.path.abspath("../assets/Retriever")
+    index_path = os.path.join(base_path, "custom_index.faiss")
+    passages_path = os.path.join(base_path, "news_dataset_with_emb")
+
+    if not os.path.exists(index_path):
+        raise FileNotFoundError(f"FAISS index not found at {index_path}")
+    if not os.path.exists(passages_path):
+        raise FileNotFoundError(f"News dataset not found at {passages_path}")
+
     retriever = RagRetriever.from_pretrained(
         model_name,
-        index_name="custom",  # Custom index
-        index_path="custom_index.faiss",  # FAISS vector database path
-        passages_path="news_dataset_with_emb",  # Pre-stored news dataset
+        index_name="custom",
+        index_path=index_path,
+        passages_path=passages_path,
     )
-    print("Retriever initialized!")
+    # print("✅ Retriever initialized!")
 
-    # 4. Load RAG model and inject the retriever
+    # 4. Load RAG model and inject the Retriever
     model = RagSequenceForGeneration.from_pretrained(
         model_name,
         retriever=retriever
@@ -54,8 +63,7 @@ def initialize_rag_components(model_name):
 
     return tokenizer, question_encoder, question_tokenizer, retriever, model
 
-
-def process_dataset(df, dataset_name, tokenizer, model, retriever):
+def process_dataset(df, dataset_name, tokenizer, model, retriever, output_dir):
     """
     For a given DataFrame:
       - Iterate over each sample to compute query embeddings using the RAG model
@@ -102,10 +110,17 @@ def process_dataset(df, dataset_name, tokenizer, model, retriever):
     # Add 'clue' and 'bm25' columns, keeping only 'index', 'text', and 'generated'
     df["clue"] = retrieved_docs_list
     df["bm25"] = bm25_scores_list
-    df = df[["index", "text", "generated", "clue", "bm25"]]
+    
+    if "index" in df.columns:
+        df = df[["index", "text", "generated", "clue", "bm25"]]
+    else:
+        df = df[["text", "generated", "clue", "bm25"]]
 
-    # Save the DataFrame as a Parquet file
-    parquet_file_path = f"RAG_results_{dataset_name}.parquet"
+    # Ensure output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Save the DataFrame as a Parquet file in the specified directory
+    parquet_file_path = os.path.join(output_dir, f"RAG_results_{dataset_name}.parquet")
     df.to_parquet(parquet_file_path, index=False)
     print(f"Saved processed dataset to {parquet_file_path}")
 
@@ -186,9 +201,9 @@ def main():
     tokenizer, question_encoder, question_tokenizer, retriever, model = initialize_rag_components(model_name)
 
     # Load datasets
-    test1 = pd.read_csv("D:\Desktop\SI630\Project\RealNewsGuard\data\Dataset\test1_final.csv")
-    test2 = pd.read_csv("D:\Desktop\SI630\Project\RealNewsGuard\data\Dataset\test2_final.csv")
-    train = pd.read_csv("D:\Desktop\SI630\Project\RealNewsGuard\data\Dataset\train_final.csv")
+    test1 = pd.read_csv(r"..\data\Dataset\test1_final.csv")
+    test2 = pd.read_csv(r"..\data\Dataset\test2_final.csv")
+    train = pd.read_csv(r"..\data\Dataset\train_final.csv")
 
     datasets = {
         "train": train,
@@ -198,16 +213,41 @@ def main():
 
     # Process each dataset
     for name, df in datasets.items():
-        process_dataset(df, name, tokenizer, model, retriever)
+        process_dataset(df, name, tokenizer, model, retriever, output_dir=r"..\data\Retriever Dataset")
 
     # Feature Extraction for machine learning
     file_paths = [
-        "D:\Desktop\SI630\Project\RealNewsGuard\data\Retriever Dataset\RAG_results_test1.parquet",
-        "D:\Desktop\SI630\Project\RealNewsGuard\data\Retriever Dataset\RAG_results_test2.parquet",
-        "D:\Desktop\SI630\Project\RealNewsGuard\data\Retriever Dataset\RAG_results_train.parquet",
+        r"..\data\Retriever Dataset\RAG_results_test1.parquet",
+        r"..\data\Retriever Dataset\RAG_results_test2.parquet",
+        r"..\data\Retriever Dataset\RAG_results_train.parquet",
+    ]
+    extract_features_from_files(file_paths)
+    
+def generalization_test():
+    # Initialize RAG components
+    model_name = "facebook/rag-sequence-base"
+    tokenizer, question_encoder, question_tokenizer, retriever, model = initialize_rag_components(model_name)
+
+    # Load datasets
+    generalize_test1 = pd.read_csv(r"..\data\Generalization Dataset\gemma-2-27b-it_test.csv")
+    generalize_test2 = pd.read_csv(r"..\data\Generalization Dataset\llama-3.1-70b-instruct.csv")
+
+    datasets = {
+        "generalize_test1": generalize_test1,
+        "generalize_test2": generalize_test2,
+    }
+
+    # Process each dataset
+    for name, df in datasets.items():
+        process_dataset(df, name, tokenizer, model, retriever, output_dir=r"..\data\Retriever Dataset")
+
+    # Feature Extraction for machine learning
+    file_paths = [
+        r"..\data\Retriever Dataset\RAG_results_generalize_test1.parquet",
+        r"..\data\Retriever Dataset\RAG_results_generalize_test2.parquet",
     ]
     extract_features_from_files(file_paths)
 
 
 if __name__ == "__main__":
-    main()
+    generalization_test()

@@ -13,6 +13,9 @@ Project Root/
 │── data/
 │   ├── Dataset/
 │   ├── Retreiver Dataset/
+│── evaluate/
+│   ├── result/
+│   ├── evaluate.ipynb
 │── prepare/
 │   ├── data_fetch_main_dataset.ipynb
 │   ├── data_fetch_retriever_dataset.ipynb

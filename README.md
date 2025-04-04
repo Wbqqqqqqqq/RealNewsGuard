@@ -23,6 +23,7 @@ Project Root/
 │   ├── retreiver_dataset_construction.py
 │   ├── retreiver.py
 │── train/
+│   ├── lora_fine_tune_with_retriever.ipynb
 │   ├── machine_learning_baseline.ipynb
 │── infer.py
 │── requirement.txt

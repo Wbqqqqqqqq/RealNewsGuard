@@ -43,10 +43,10 @@ Use the `infer.py` script to check if a given text is real or fake news.
 
 #### **Example 1: Fake News Detection**
 ```shell
-python infer.py --text "In a groundbreaking discovery, scientists at the International Coffee Research Institute (ICRI) have found a rare coffee plant in the high-altitude regions of Colombia that naturally produces espresso beans." --checkpoint_path "assets/LoRA+RAG"
+python infer.py --text "In a groundbreaking expedition to the uncharted regions of the Peruvian Amazon, a team of scientists from the Natural History Museum of London has made the discovery of a lifetime, uncovering 27 previously unknown species of plants and animals that are set to rewrite the textbooks on biodiversity."
 ```
 
 #### **Example 2: Real News Detection**
 ```shell
-python infer.py --text "Senator Mark Warner, who is the vice-chair of the Senate intel committee, called the Trump administration’s decision to fire top FBI officials “deeply alarming”." --checkpoint_path "assets/LoRA+RAG"
+python infer.py --text "Senator Mark Warner, who is the vice-chair of the Senate intel committee, called the Trump administration’s decision to fire top FBI officials “deeply alarming”."
 ```

@@ -13,6 +13,7 @@ from safetensors.torch import load_file
 from transformers import (
     AutoTokenizer, RagRetriever, RagSequenceForGeneration, DPRQuestionEncoder, BigBirdModel
 )
+from peft import LoraConfig, get_peft_model
 
 def initialize_rag_components(model_name):
     """
@@ -90,25 +91,31 @@ def retrieve_clues(text, tokenizer, model, retriever, n_docs=5):
     return formatted_clues
 
 class DualChannelModel(nn.Module):
-    def __init__(self, model_name, num_labels):
+    def __init__(self, model_name, num_labels, lora_config=None):
         super(DualChannelModel, self).__init__()
+        # Load the base BigBird model
         self.bigbird = BigBirdModel.from_pretrained(model_name)
-        self.alpha = nn.Parameter(torch.tensor(1.0))  # Learnable weight for text, starting fully weighted
 
+        # Apply LoRA if a configuration is provided
+        if lora_config is not None:
+            self.bigbird = get_peft_model(self.bigbird, lora_config)  # Only apply LoRA to the BigBird model
+
+        # Update the classifier to accept the concatenated features.
         self.classifier = nn.Sequential(
             nn.Dropout(0.1),
-            nn.Linear(self.bigbird.config.hidden_size, self.bigbird.config.hidden_size),
+            nn.Linear(self.bigbird.config.hidden_size * 2, self.bigbird.config.hidden_size),
             nn.GELU(),
             nn.Linear(self.bigbird.config.hidden_size, num_labels)
         )
 
     def forward(self, input_ids, attention_mask, clue_input_ids, clue_attention_mask, labels=None):
+        # Extract [CLS] token from main input
         text_outputs = self.bigbird(input_ids=input_ids, attention_mask=attention_mask).last_hidden_state[:, 0, :]
+        # Compute mean pooling for the clue input
         clue_outputs = self.bigbird(input_ids=clue_input_ids, attention_mask=clue_attention_mask).last_hidden_state.mean(dim=1)
 
-        # Calculate weighted fusion
-        weights = torch.softmax(torch.stack([self.alpha, 1 - self.alpha]), dim=0)
-        fused_features = text_outputs * weights[0] + clue_outputs * weights[1]
+        # Concatenate text_outputs and clue_outputs along the feature dimension
+        fused_features = torch.cat([text_outputs, clue_outputs], dim=1)
 
         logits = self.classifier(fused_features)
         loss = None
@@ -118,11 +125,30 @@ class DualChannelModel(nn.Module):
         return {"loss": loss, "logits": logits}
 
 def load_model(checkpoint_path, model_name, num_labels=2):
-    model = DualChannelModel(model_name, num_labels)
+    lora_config = LoraConfig(
+        r=8,
+        lora_alpha=32,
+        target_modules=[
+            "query", "key", "value",
+            "output.dense",
+            "classifier.out_proj"
+        ],
+        lora_dropout=0.1,
+        bias="none",
+        task_type="SEQ_CLS",
+    )
+    model = DualChannelModel(model_name, num_labels=num_labels, lora_config=lora_config)
     model.bigbird.config.gradient_checkpointing = True
-    state_dict = load_file(os.path.join(checkpoint_path, "model.safetensors"))
-    model.load_state_dict(state_dict)
+    checkpoint_file = os.path.join(checkpoint_path, "model.safetensors")
+    if not os.path.exists(checkpoint_file):
+        raise FileNotFoundError(f"Checkpoint file not found: {checkpoint_file}")
+
+    state_dict = load_file(checkpoint_file)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    state_dict = {k: v.to(device) for k, v in state_dict.items()}
+    model.load_state_dict(state_dict)
+
     model.to(device)
     model.eval()
     return model, device
@@ -146,7 +172,7 @@ def predict(model, device, tokenizer, texts, clues, batch_size=8):
             batch_clues,
             padding="max_length",
             truncation=True,
-            max_length=768,
+            max_length=4096,
             return_tensors="pt"
         ).to(device)
 
@@ -166,7 +192,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="Run inference using the DualChannelModel.")
     parser.add_argument("--text", type=str, required=True, help="Input text for prediction.")
-    parser.add_argument("--checkpoint_path", type=str, required=True, help="Path to the model checkpoint.")
+    parser.add_argument("--checkpoint_path", type=str, default="assets/LoRA+RAG", help="Path to the model checkpoint.")
     parser.add_argument("--model_name", type=str, default="google/bigbird-roberta-base", help="Name of the pre-trained model.")
     parser.add_argument("--batch_size", type=int, default=1, help="Batch size for inference.")
 

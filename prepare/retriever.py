@@ -38,7 +38,7 @@ def initialize_rag_components(model_name):
     question_tokenizer = AutoTokenizer.from_pretrained(question_encoder_model, trust_remote_code=True)
 
     # 3. Initialize Retriever (based on FAISS vector database)
-    base_path = os.path.abspath("../assets/Retriever")
+    base_path = os.path.abspath("./assets/Retriever")
     index_path = os.path.join(base_path, "custom_index.faiss")
     passages_path = os.path.join(base_path, "news_dataset_with_emb")
 
@@ -114,7 +114,10 @@ def process_dataset(df, dataset_name, tokenizer, model, retriever, output_dir):
     if "index" in df.columns:
         df = df[["index", "text", "generated", "clue", "bm25"]]
     else:
-        df = df[["text", "generated", "clue", "bm25"]]
+        if "generated" not in df.columns:
+            df = df[["text", "clue", "bm25"]]
+        else:
+            df = df[["text", "generated", "clue", "bm25"]]
 
     # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)
@@ -227,14 +230,18 @@ def generalization_test():
     # Initialize RAG components
     model_name = "facebook/rag-sequence-base"
     tokenizer, question_encoder, question_tokenizer, retriever, model = initialize_rag_components(model_name)
-
+    
     # Load datasets
-    generalize_test1 = pd.read_csv(r"..\data\Generalization Dataset\gemma-2-27b-it_test.csv")
-    generalize_test2 = pd.read_csv(r"..\data\Generalization Dataset\llama-3.1-70b-instruct.csv")
+    generalize_test1 = pd.read_csv(r"D:\Desktop\SI630\Git2\RealNewsGuard\data\Generalization Dataset\AI_fake_gemma_train.csv")
+    generalize_test2 = pd.read_csv(r"D:\Desktop\SI630\Git2\RealNewsGuard\data\Generalization Dataset\AI_fake_llama_train.csv")
+    generalize_test3 = pd.read_csv(r"D:\Desktop\SI630\Git2\RealNewsGuard\data\Generalization Dataset\AI_fake_qwen_test.csv")
+    generalize_test4 = pd.read_csv(r"D:\Desktop\SI630\Git2\RealNewsGuard\data\Generalization Dataset\AI_real_qwen.csv")
 
     datasets = {
-        "generalize_test1": generalize_test1,
-        "generalize_test2": generalize_test2,
+        "generalize_gemma": generalize_test1,
+        "generalize_llama": generalize_test2,
+        "generalize_qwen": generalize_test3, 
+        "generalize_qwen_real": generalize_test4
     }
 
     # Process each dataset
@@ -243,8 +250,10 @@ def generalization_test():
 
     # Feature Extraction for machine learning
     file_paths = [
-        r"..\data\Retriever Dataset\RAG_results_generalize_test1.parquet",
-        r"..\data\Retriever Dataset\RAG_results_generalize_test2.parquet",
+        r"..\data\Retriever Dataset\RAG_results_generalize_gemma.parquet",
+        r"..\data\Retriever Dataset\RAG_results_generalize_llama.parquet",
+        r"..\data\Retriever Dataset\RAG_results_generalize_qwen.parquet",
+        r"..\data\Retriever Dataset\RAG_results_generalize_qwen_real.parquet",
     ]
     extract_features_from_files(file_paths)
 
